@@ -15,14 +15,60 @@ const svg = d3.create("svg")
 
 // Constructs and configures a Sankey generator.
 const sankey = d3Sankey.sankey()
-  .nodeId(d => d.name)
+  .nodeId(d => d.title)
   .nodeAlign(d3Sankey.sankeyJustify) // d3.sankeyLeft, etc.
   .nodeWidth(15)
   .nodePadding(10)
   .extent([[1, 5], [width - 1, height - 5]]);
 
 async function init() {
-  const data = await d3.json("data/data_sankey.json");
+  const file = await d3.json("data/jmu.json");
+  const items = file["student-costs"].filter(n => n.type == 'student itemized').map(n => {return {...n, "title": `${n.semester}-${n.name}`}});
+  const fallitems = items.filter(n => n.semester == "Fall");
+  const fallcost = fallitems.map(n => n["in-state"]).reduce((a, b) => a + b);
+  const springitems = items.filter(n => n.semester == "Spring");
+  const springcost = fallitems.map(n => n["in-state"]).reduce((a, b) => a + b);
+  
+  const data = {
+    nodes: [
+      {
+        name: "JMU Student",
+        title:"JMU Student",
+      },
+      {
+        name: "Fall",
+        title:"Fall",
+      },
+      {
+        name: "Spring",
+        title:"Spring",
+      },
+      ...items
+    ],
+    links: [
+      {
+        "source": "JMU Student",
+        "target": "Fall",
+        "value": fallcost
+      },
+      {
+        "source": "JMU Student",
+        "target": "Spring",
+        "value": springcost
+      },
+      ...fallitems.map((n) => {return {
+        "source": "Fall",
+        "target": n.title,
+        "value": n["in-state"]
+      }}),
+      ...springitems.map((n) => {return {
+        "source": "Spring",
+        "target": n.title,
+        "value": n["in-state"]
+      }})
+    ]
+  }
+  
   // Applies it to the data. We make a copy of the nodes and links objects
   // so as to avoid mutating the original.
   const { nodes, links } = sankey({
@@ -100,7 +146,7 @@ async function init() {
     .attr("y", d => (d.y1 + d.y0) / 2)
     .attr("dy", "0.35em")
     .attr("text-anchor", d => d.x0 < width / 2 ? "start" : "end")
-    .text(d => d.title);
+    .text(d => d.name);
 
     // Adds labels on the links.
   svg.append("g")
@@ -117,11 +163,11 @@ async function init() {
     .attr("text-anchor", d => d.x0 < width / 2 ? "start" : "end")
     .text(d => {
       console.log('linkd', d);
-      return `${d.source.title} → ${d.value} → ${d.target.title}`
+      return `${d.source.name} → ${d.value} → ${d.target.name}`
     });
 
   const svgNode = svg.node();
-    document.body.appendChild(svgNode);
+  document.body.appendChild(svgNode);
   return svgNode;
 }
 
